@@ -1,5 +1,14 @@
 // Serv is a tiny command-line webserver for serving static directories.
 // It is intended for temporary debugging use only.
+//
+// Usage:
+//
+//    # Serve the current directory (and subdirs) on the default port (9999).
+//    serv
+//
+//    # Serve /tmp/blah on port 1234
+//    serv --root /tmp/blah --port 1234
+//
 package main
 
 import (
@@ -38,6 +47,6 @@ func main() {
 	flag.Parse()
 	log.SetFlags(log.Ldate | log.Ltime)
 	http.Handle("/", &LoggingHandler{http.FileServer(http.Dir(*root))})
-	log.Println("Listening on port", *port)
+	log.Printf("Serving %s on port %d", *root, *port)
 	http.ListenAndServe(fmt.Sprintf(":%d", *port), nil)
 }
