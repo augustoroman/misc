@@ -2,9 +2,10 @@ package main
 
 import (
 	"bitbucket.org/liamstask/gosc"
+	"encoding/json"
 	"flag"
 	"fmt"
-	"github.com/augustoroman/hexdump"
+	"github.com/augustoroman/misc/chunker"
 	"github.com/gobs/cmd"
 	"log"
 	"net"
@@ -89,21 +90,38 @@ func (u *UdpServer) quit() {
 
 func (u *UdpServer) run() {
 	log.Println("Listening on", u.conn.LocalAddr())
-	const maxPacketSize = 1 << 20
+	const maxPacketSize = 6 << 10 // 64k
 	data := make([]byte, maxPacketSize)
+	var md chunker.MessageDechunker
 	for {
 		msglen, from, err := u.conn.ReadFromUDP(data)
 		if err != nil {
 			log.Println("Udp error: ", err)
 			break
 		}
-		var strdata string
-		if u.hex {
-			strdata = hexdump.Dump(data[:msglen])
-		} else {
-			strdata = string(data[:msglen])
+
+		chunk, err := chunker.ParseChunk(data[:msglen])
+		if err != nil {
+			log.Println("Malformed chunk: %v", err)
+			continue
 		}
-		log.Printf("Got %d bytes from %v: %s", msglen, from, strdata)
+
+		log.Printf("Message %d, Chunk %d/%d: %d bytes from %v",
+			chunk.MessageId(), chunk.ChunkId(), chunk.NumChunks(),
+			len(chunk.Data()), from)
+
+		if md.AddChunk(chunk) {
+			msg := md.Assemble()
+			log.Printf("Got complete message of %d bytes\n", len(msg))
+			var parsed interface{}
+			err := json.Unmarshal([]byte(msg), &parsed)
+			if err != nil {
+				log.Printf("  [Failed to parse message to json: %v]", err)
+			} else {
+				s, _ := json.MarshalIndent(parsed, "  ", "  ")
+				log.Println(string(s))
+			}
+		}
 	}
 }
 
