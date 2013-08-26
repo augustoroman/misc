@@ -112,6 +112,7 @@ func process(md *chunker.MessageDechunker, data []byte) {
 				log.Println(string(s))
 			}
 		}
+		md.Reset()
 	}
 
 }
