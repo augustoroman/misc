@@ -14,6 +14,7 @@ import (
 )
 
 var port = flag.Int("port", 12345, "Port to listen on.")
+var quiet = flag.Bool("quiet", false, "Avoid printing content of successfully parsed messages")
 
 var msg, addr string
 
@@ -74,6 +75,15 @@ func Process(packets <-chan []byte, emptyreturn chan<- []byte) {
 	}
 }
 
+func clip(d []byte, l int) string {
+	N := len(d)
+	if N < l {
+		return string(d)
+	}
+	m := l / 2
+	return string(d[:m]) + "..." + string(d[N-m:])
+}
+
 func process(md *chunker.MessageDechunker, data []byte) {
 	chunk, err := chunker.ParseChunk(data)
 	if err != nil {
@@ -94,8 +104,13 @@ func process(md *chunker.MessageDechunker, data []byte) {
 			log.Printf("  [Failed to parse message to json: %v]", err)
 			log.Println("  Raw message: ", msg)
 		} else {
-			s, _ := json.MarshalIndent(parsed, "  ", "  ")
-			log.Println(string(s))
+			if *quiet {
+				s, _ := json.Marshal(parsed)
+				log.Println("Successfully parsed json: ", clip(s, 20))
+			} else {
+				s, _ := json.MarshalIndent(parsed, "  ", "  ")
+				log.Println(string(s))
+			}
 		}
 	}
 
