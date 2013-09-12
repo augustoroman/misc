@@ -4,24 +4,40 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"time"
 )
 
-func main() {
-	if len(os.Args) != 2 {
-		fmt.Println("Usage is: watch_file [filename]")
-		os.Exit(0)
+var rate = flag.Duration("rate", time.Minute, "Rate at which the file is checked.  "+
+	"Example rates: 1s (= once per sec), 1m (= once a minute), 2m45s, 500ms, 1h")
+
+func doUpdate(target string) {
+	if err := update(target); err != nil {
+		fmt.Printf("Error trying to access [%s]: %v\n", target, err)
+	} else if fi, err := os.Stat(target); err != nil {
+		fmt.Printf("Error trying to access [%s]: %v\n", target, err)
+	} else {
+		fmt.Printf("%s: %14d\n", target, fi.Size())
 	}
-	target := os.Args[1]
-	for _ = range time.Tick(1 * time.Second) {
-		if err := update(target); err != nil {
-			fmt.Printf("Error trying to access [%s]: %v\n", target, err)
-		} else if fi, err := os.Stat(target); err != nil {
-			fmt.Printf("Error trying to access [%s]: %v\n", target, err)
-		} else {
-			fmt.Printf("%s: %14d\n", target, fi.Size())
-		}
+}
+
+func usage() {
+	fmt.Println("Usage is: watch_file [-rate=RATE] <filename>")
+	flag.PrintDefaults()
+}
+
+func main() {
+	flag.Usage = usage
+	flag.Parse()
+	if len(flag.Args()) != 1 {
+		usage()
+		os.Exit(1)
+	}
+	target := flag.Args()[0]
+	doUpdate(target)
+	for _ = range time.Tick(*rate) {
+		doUpdate(target)
 	}
 }
